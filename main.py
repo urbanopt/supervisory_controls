@@ -60,7 +60,7 @@ def initialize_control():
 
     '''
     
-    u = {'oveClgSP_u': 22 + 273,
+    u = {'oveClgSP_u': 30.0 + 273,
          'oveClgSP_activate': True} 
     return u
     
@@ -93,24 +93,19 @@ def main():
     u = initialize_control()
     heating_setpoint = 21
 
-    file= 'D:\\Urban_Work\\mixed_loads_no_spawn\\mixed_loads\\wrapped_2021.11.19.fmu' 
+    file = 'wrapped_2021.11.19.fmu' 
     
     print(f"Uploading test case {file}")
     site = alfalfa.submit(file)
+
     print('Starting simulation')
-    #alfalfa.start(
-     #   site,
-      #  start_time=start_time,
-       # end_time=end_time,
-        #external_clock=False,
-    #)
+
     alfalfa.start(
         site,
-        start_time=15552000,
-        end_time=15642000, 
+        start_datetime=15552000, # June 1
         external_clock=True,
     )
-    
+
     history = {
      'timestamp': [],
       'Teaser_clg_del_y': [], #add in zone temperature and cool flow 
@@ -121,6 +116,8 @@ def main():
     
      
     u2 = change_setpoint()
+    alfalfa.advance([site])
+    time.sleep(1.0)
 
     print('Stepping through time')  
     for i in range(int(length / step)): 
@@ -128,6 +125,7 @@ def main():
             u=change_setpoint()
         else: 
             u=initialize_control() 
+        u=initialize_control() 
         alfalfa.setInputs(site, u)
         print("u")
         print(u) 
@@ -151,7 +149,6 @@ def main():
             #history['Teaser_mtg_zone_air_temp'].append(0)
             history['Teaser_office_zone_air_temp'].append(0) 
             history['Teaser_mtg_zone_air_temp_v2'].append(0) 
-        time.sleep(0.01)
     
     #alfalfa.stop(site)
 
