@@ -93,7 +93,8 @@ def main():
     u = initialize_control()
     heating_setpoint = 21
 
-    file = 'wrapped_2021.11.19.fmu' 
+    #file = 'wrapped_2021.11.19.fmu' 
+    file='fmus\wrapped_2021.12.07.fmu' 
     
     print(f"Uploading test case {file}")
     site = alfalfa.submit(file)
@@ -112,6 +113,7 @@ def main():
       #'Teaser_mtg_zone_air_temp':[],
       'Teaser_office_zone_air_temp':[],
       'Teaser_mtg_zone_air_temp_v2':[], 
+      'OA_DB':[], 
       }
     
      
@@ -121,7 +123,7 @@ def main():
 
     print('Stepping through time')  
     for i in range(int(length / step)): 
-        if i >= 200: #to deal with time lag 
+        if i >= 50: #to deal with time lag 
             u=change_setpoint()
         else: 
             u=initialize_control() 
@@ -139,16 +141,18 @@ def main():
         current_time = i 
         history['timestamp'].append(current_time) 
  
-        if i > 200: 
+        if i > 50: 
             history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y'])
             #history['Teaser_mtg_zone_air_temp'].append(model_outputs['Teaser_mtg_zone_air_temp'])  
             history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp'])
             history['Teaser_mtg_zone_air_temp_v2'].append(model_outputs['Teaser_mtg_zone_air_temp_v2']) 
+            history['OA_DB'].append(model_outputs['Teaser_OA_DB'])
         else: 
             history['Teaser_clg_del_y'].append(0)
             #history['Teaser_mtg_zone_air_temp'].append(0)
             history['Teaser_office_zone_air_temp'].append(0) 
             history['Teaser_mtg_zone_air_temp_v2'].append(0) 
+            history['OA_DB'].append(0) 
     
     #alfalfa.stop(site)
 
