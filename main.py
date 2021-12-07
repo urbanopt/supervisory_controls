@@ -60,7 +60,7 @@ def initialize_control():
 
     '''
     
-    u = {'oveClgSP_u': 30.0 + 273,
+    u = {'oveClgSP_u': 20.0 + 273,
          'oveClgSP_activate': True} 
     return u
     
@@ -102,18 +102,17 @@ def main():
 
     alfalfa.start(
         site,
-        start_datetime=15552000, # June 1
+        start_datetime=15552000,
         external_clock=True,
     )
 
     history = {
-     'timestamp': [],
-      'Teaser_clg_del_y': [], #add in zone temperature and cool flow 
-      #'Teaser_mtg_zone_air_temp':[],
-      'Teaser_office_zone_air_temp':[],
-      'Teaser_mtg_zone_air_temp_v2':[], 
-      }
-    
+        'elapsed_seconds': [],
+        'datetime': [],
+        'Teaser_clg_del_y': [], #add in zone temperature and cool flow 
+        'Teaser_office_zone_air_temp':[],
+        'Teaser_mtg_zone_air_temp_v2':[], 
+    }
      
     u2 = change_setpoint()
     alfalfa.advance([site])
@@ -121,36 +120,21 @@ def main():
 
     print('Stepping through time')  
     for i in range(int(length / step)): 
-        if i >= 200: #to deal with time lag 
-            u=change_setpoint()
-        else: 
-            u=initialize_control() 
         u=initialize_control() 
         alfalfa.setInputs(site, u)
-        print("u")
-        print(u) 
-        print("i")
-        print(i)
+
         alfalfa.advance([site])
+
         model_outputs = alfalfa.outputs(site)
-        # print(u)
-        print(model_outputs)
-        sys.stdout.flush()
-        current_time = i 
-        history['timestamp'].append(current_time) 
- 
-        if i > 200: 
-            history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y'])
-            #history['Teaser_mtg_zone_air_temp'].append(model_outputs['Teaser_mtg_zone_air_temp'])  
-            history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp'])
-            history['Teaser_mtg_zone_air_temp_v2'].append(model_outputs['Teaser_mtg_zone_air_temp_v2']) 
-        else: 
-            history['Teaser_clg_del_y'].append(0)
-            #history['Teaser_mtg_zone_air_temp'].append(0)
-            history['Teaser_office_zone_air_temp'].append(0) 
-            history['Teaser_mtg_zone_air_temp_v2'].append(0) 
+
+        current_time = alfalfa.get_sim_time(site)
+        history['elapsed_seconds'].append(current_time) 
+        history['datetime'].append(datetime.datetime.fromtimestamp(int(float(current_time)))) # From Jan 1, 1970, which is probably not the correct year
+        history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y'])
+        history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp'])
+        history['Teaser_mtg_zone_air_temp_v2'].append(model_outputs['Teaser_mtg_zone_air_temp_v2']) 
     
-    #alfalfa.stop(site)
+    alfalfa.stop(site)
 
     # storage for results
     file_basename = os.path.splitext(os.path.basename(__file__))[0]
