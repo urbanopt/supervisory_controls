@@ -93,7 +93,7 @@ def main():
     u = initialize_control()
     heating_setpoint = 21
 
-    file = 'wrapped_2021.11.19.fmu' 
+    file='FMUs/wrapped_2021.12.07.fmu' 
     
     print(f"Uploading test case {file}")
     site = alfalfa.submit(file)
@@ -102,7 +102,7 @@ def main():
 
     alfalfa.start(
         site,
-        start_datetime=15552000,
+        start_datetime=15552000, # July 1st 
         external_clock=True,
     )
 
@@ -112,6 +112,7 @@ def main():
         'Teaser_clg_del_y': [], #add in zone temperature and cool flow 
         'Teaser_office_zone_air_temp':[],
         'Teaser_mtg_zone_air_temp_v2':[], 
+        'OA_DB':[]
     }
      
     u2 = change_setpoint()
@@ -133,16 +134,15 @@ def main():
         history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y'])
         history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp'])
         history['Teaser_mtg_zone_air_temp_v2'].append(model_outputs['Teaser_mtg_zone_air_temp_v2']) 
+        history['OA_DB'].append(model_outputs['Teaser_OA_DB'])
     
     alfalfa.stop(site)
 
     # storage for results
     file_basename = os.path.splitext(os.path.basename(__file__))[0]
-    # print(history) 
     result_dir = f'results_{file_basename}'
     os.makedirs(result_dir, exist_ok=True)
     history_df = pd.DataFrame.from_dict(history)
-    # print(history_df)
     history_df.to_csv(f'{result_dir}/{file_basename}.csv')
 
 
