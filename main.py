@@ -103,7 +103,7 @@ def main():
 
     alfalfa.start(
         site,
-        start_datetime=15552000, # June 1
+        start_datetime=15552000, # July 1st 
         external_clock=True,
     )
 
