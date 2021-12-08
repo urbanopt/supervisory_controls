@@ -60,7 +60,7 @@ def initialize_control():
 
     '''
     
-    u = {'oveClgSP_u': 30.0 + 273,
+    u = {'oveClgSP_u': 24.0 + 273,
          'oveClgSP_activate': True} 
     return u
     
@@ -79,7 +79,7 @@ def change_setpoint(): ##AA added 11/9
 
     '''
          
-    u = {'oveClgSP_u': 22 + 273,
+    u = {'oveClgSP_u': 24 + 273,
          'oveClgSP_activate': True} 
 
     return u
@@ -93,8 +93,7 @@ def main():
     u = initialize_control()
     heating_setpoint = 21
 
-    #file = 'wrapped_2021.11.19.fmu' 
-    file='fmus\wrapped_2021.12.07.fmu' 
+    file='FMUs/wrapped_2021.12.07.fmu' 
     
     print(f"Uploading test case {file}")
     site = alfalfa.submit(file)
@@ -103,66 +102,54 @@ def main():
 
     alfalfa.start(
         site,
-        start_datetime=15552000, # July 1st 
+        start_datetime=15552000, # July 1st 15552000.0
         external_clock=True,
     )
-
-    history = {
-     'timestamp': [],
-      'Teaser_clg_del_y': [], #add in zone temperature and cool flow 
-      #'Teaser_mtg_zone_air_temp':[],
-      'Teaser_office_zone_air_temp':[],
-      'Teaser_mtg_zone_air_temp_v2':[], 
-      'OA_DB':[], 
-      }
+    print(alfalfa.status(site)) 
     
+    time.sleep(10.0)
+    print(alfalfa.status(site)) 
+    history = {
+        'elapsed_seconds': [],
+        'datetime': [],
+        #'Teaser_clg_del_y': [], #add in zone temperature and cool flow 
+        #'Teaser_office_zone_air_temp':[],
+        'Teaser_mtg_zone_air_temp_v2':[], 
+        'OA_DB':[]
+    }
      
     u2 = change_setpoint()
+    print("alfalfa advancing") 
     alfalfa.advance([site])
-    time.sleep(1.0)
+    
 
     print('Stepping through time')  
-    for i in range(int(length / step)): 
-        if i >= 50: #to deal with time lag 
-            u=change_setpoint()
-        else: 
-            u=initialize_control() 
+    for i in range(int(length / step)*4): 
+        #if i>=100: 
         u=initialize_control() 
         alfalfa.setInputs(site, u)
-        print("u")
-        print(u) 
-        print("i")
-        print(i)
+
         alfalfa.advance([site])
+
         model_outputs = alfalfa.outputs(site)
-        # print(u)
-        print(model_outputs)
-        sys.stdout.flush()
-        current_time = i 
-        history['timestamp'].append(current_time) 
- 
-        if i > 50: 
-            history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y'])
-            #history['Teaser_mtg_zone_air_temp'].append(model_outputs['Teaser_mtg_zone_air_temp'])  
-            history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp'])
-            history['Teaser_mtg_zone_air_temp_v2'].append(model_outputs['Teaser_mtg_zone_air_temp_v2']) 
-            history['OA_DB'].append(model_outputs['Teaser_OA_DB'])
-        else: 
-            history['Teaser_clg_del_y'].append(0)
-            #history['Teaser_mtg_zone_air_temp'].append(0)
-            history['Teaser_office_zone_air_temp'].append(0) 
-            history['Teaser_mtg_zone_air_temp_v2'].append(0) 
-            history['OA_DB'].append(0) 
-    
-    #alfalfa.stop(site)
+
+        current_time = alfalfa.get_sim_time(site)
+        history['elapsed_seconds'].append(current_time) 
+        history['datetime'].append(datetime.datetime.fromtimestamp(int(float(current_time)))) # From Jan 1, 1970, which is probably not the correct year
+        #history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y'])
+        #history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp'])
+        print(model_outputs) 
+        history['Teaser_mtg_zone_air_temp_v2'].append(model_outputs['Teaser_mtg_zone_air_temp_v2']) 
+        
+        history['OA_DB'].append(model_outputs['Teaser_OA_DB'])
+
+    alfalfa.stop(site)
 
     # storage for results
     file_basename = os.path.splitext(os.path.basename(__file__))[0]
-    # print(history) 
     result_dir = f'results_{file_basename}'
     os.makedirs(result_dir, exist_ok=True)
     history_df = pd.DataFrame.from_dict(history)
-    # print(history_df)
     history_df.to_csv(f'{result_dir}/{file_basename}.csv')
 
 
