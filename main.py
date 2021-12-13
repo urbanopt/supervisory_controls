@@ -69,7 +69,8 @@ def main():
     u = initialize_control()
     heating_setpoint = 21
 
-    file='wrapped_2021.12.09_bldg2.fmu'
+    file='FMUs/wrapped_2021.12.07.fmu' 
+
     
     print(f"Uploading test case {file}")
     site = alfalfa.submit(file)
@@ -83,7 +84,6 @@ def main():
         start_datetime=start_time, 
         external_clock=True,
     )
-    print(alfalfa.status(site)) 
     
     time.sleep(10.0)
     print(alfalfa.status(site)) 
@@ -107,6 +107,7 @@ def main():
 
     print('Stepping through time')  
 
+
     while Decimal(current_time) <= (start_time + length): 
         current_time = alfalfa.get_sim_time(site) 
         model_outputs = alfalfa.outputs(site)
@@ -122,7 +123,6 @@ def main():
         else:
             alfalfa.setInputs(site, u) #Keep base case setpoint 
         alfalfa.advance([site])
-        model_outputs = alfalfa.outputs(site)
         current_time = alfalfa.get_sim_time(site)
         datetime=pd.to_datetime(int(float(current_time))) 
         history['elapsed_seconds'].append(current_time) 
@@ -134,7 +134,6 @@ def main():
         history['Teaser_clg_SP_air'].append(model_outputs['Teaser_clg_SP_air'])
         history['Teaser_clg_SP_air_bldg2'].append(model_outputs['Teaser_clg_SP_air_bldg2']) 
         history['OA_DB'].append(model_outputs['Teaser_OA_DB'])
-
     alfalfa.stop(site)
 
     # storage for results
