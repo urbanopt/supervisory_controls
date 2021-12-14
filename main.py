@@ -69,7 +69,7 @@ def main():
     u = initialize_control()
     heating_setpoint = 21
 
-    file='FMUs/wrapped_2021.12.07.fmu' 
+    file='FMUs/wrapped_2021.12.09_bldg2.fmu' 
 
     
     print(f"Uploading test case {file}")
