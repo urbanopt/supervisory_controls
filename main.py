@@ -6,43 +6,15 @@ import random
 import sys
 import time
 from multiprocessing import Process, freeze_support
-import pdb ##AA added 
+from decimal import Decimal 
 
 import pandas as pd
 from alfalfa_client.alfalfa_client import AlfalfaClient
-
-
-def pe_signal():
-    k_pe = 20000
-    return [random.random() * k_pe for _ in range(5)]
-
-
-def dummy_flow():
-    """
-    :return: list, control actions
-    """
-    # create a number for the Supply Fan status
-    return [random.random() * 0.5 for _ in range(0, 5)]
+seconds_day = 86400 
+sec_hour = 3600 
 
 
 # def Controller(object):
-def compute_control(y, heating_setpoint):
-    """
-
-    :param y: Temperature of zone, K
-    :param heating_setpoint: Temperature Setpoint, C
-    :return: dict, control input to be used for the next step {<input_name> : <input_value>}
-    """
-    # Controller parameters
-    setpoint = 273.15 + 20
-    k_p = 5
-    # Compute control
-    e = setpoint - y['TRooAir_y']
-    value = max(k_p * e, 0)
-    u = {'oveAct_u': value,
-         'oveAct_activate': 1}
-
-    return u
 
 
 def initialize_control():
@@ -60,11 +32,13 @@ def initialize_control():
 
     '''
     
-    u = {'oveClgSP_u': 20.0 + 273,
-         'oveClgSP_activate': True} 
+    u = {'oveClgSP_u': 23 + 273,
+         'oveClgSP_activate': True,
+         'oveClgSP_v2_u': 23 + 273,
+         'oveClgSP_v2_activate': True} 
     return u
     
-def change_setpoint(): ##AA added 11/9 
+def change_setpoint(): 
     '''change the control input u.
 
     Parameters
@@ -79,8 +53,10 @@ def change_setpoint(): ##AA added 11/9
 
     '''
          
-    u = {'oveClgSP_u': 22 + 273,
-         'oveClgSP_activate': True} 
+    u = {'oveClgSP_u': 27 + 273,
+         'oveClgSP_activate': True,
+         'oveClgSP_v2_u': 27 + 273,
+         'oveClgSP_v2_activate': True} 
 
     return u
 
@@ -88,54 +64,76 @@ def change_setpoint(): ##AA added 11/9
 def main():
     alfalfa = AlfalfaClient(url='http://localhost')
 
-    length = 90000 #25 hours 
+    length = 604800 #168 hours 
     step = 300  # 5 minutes -- this may be hard coded in step_fmu.py
     u = initialize_control()
     heating_setpoint = 21
 
     file='FMUs/wrapped_2021.12.07.fmu' 
+
     
     print(f"Uploading test case {file}")
     site = alfalfa.submit(file)
 
     print('Starting simulation')
+    
+    start_time=13824000
 
     alfalfa.start(
         site,
-        start_datetime=15552000, # July 1st 
+        start_datetime=start_time, 
         external_clock=True,
     )
-
+    
+    time.sleep(10.0)
+    print(alfalfa.status(site)) 
     history = {
         'elapsed_seconds': [],
-        'datetime': [],
-        'Teaser_clg_del_y': [], #add in zone temperature and cool flow 
-        'Teaser_office_zone_air_temp':[],
+        'hour':[], 
         'Teaser_mtg_zone_air_temp_v2':[], 
+        'Teaser_office_zone_air_temp':[], 
+        'Teaser_clg_del_y':[], 
+        'chiller_power_draw_y':[],
+        'Teaser_clg_SP_air':[], 
+        'Teaser_clg_SP_air_bldg2':[], 
         'OA_DB':[]
     }
      
     u2 = change_setpoint()
+    print("alfalfa advancing") 
     alfalfa.advance([site])
-    time.sleep(1.0)
+    current_time = alfalfa.get_sim_time(site) 
+    
 
     print('Stepping through time')  
-    for i in range(int(length / step)): 
-        u=initialize_control() 
-        alfalfa.setInputs(site, u)
 
-        alfalfa.advance([site])
 
+    while Decimal(current_time) <= (start_time + length): 
+        current_time = alfalfa.get_sim_time(site) 
         model_outputs = alfalfa.outputs(site)
-
+        sec_into_day = Decimal(current_time) % seconds_day 
+        hour = sec_into_day/sec_hour
+        history['hour'].append(hour) 
+        u=initialize_control() 
+        datetime_obj=pd.to_datetime(int(float(current_time)), unit='s', origin=pd.Timestamp('2017-01-01'))
+        dow=datetime_obj.weekday()
+        if hour >=15 and hour <=17 and dow<5: #going in to DR condition on weekday afternoons 
+            alfalfa.setInputs(site, u2) #Increase cooling setpoint
+            print("dr condition") 
+        else:
+            alfalfa.setInputs(site, u) #Keep base case setpoint 
+        alfalfa.advance([site])
         current_time = alfalfa.get_sim_time(site)
+        datetime=pd.to_datetime(int(float(current_time))) 
         history['elapsed_seconds'].append(current_time) 
-        history['datetime'].append(datetime.datetime.fromtimestamp(int(float(current_time)))) # From Jan 1, 1970, which is probably not the correct year
-        history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y'])
-        history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp'])
+        #history['datetime'].append(datetime.datetime.fromtimestamp(int(float(current_time)))) # From Jan 1, 1970, which is probably not the correct year
         history['Teaser_mtg_zone_air_temp_v2'].append(model_outputs['Teaser_mtg_zone_air_temp_v2']) 
+        history['Teaser_office_zone_air_temp'].append(model_outputs['Teaser_office_zone_air_temp']) 
+        history['Teaser_clg_del_y'].append(model_outputs['Teaser_clg_del_y']) 
+        history['chiller_power_draw_y'].append(model_outputs['chiller_power_draw_y']) 
+        history['Teaser_clg_SP_air'].append(model_outputs['Teaser_clg_SP_air'])
+        history['Teaser_clg_SP_air_bldg2'].append(model_outputs['Teaser_clg_SP_air_bldg2']) 
         history['OA_DB'].append(model_outputs['Teaser_OA_DB'])
-    
     alfalfa.stop(site)
 
     # storage for results
